@@ -1,0 +1,56 @@
+1.  Directory Structure
+
+    ``` bash
+    mkdir -p raw_fastq/raw_qc
+    mkdir -p trim_fastq/trim_qc trim_fastq/trim_stats
+    mkdir align_quant
+    ```
+
+2.  QC Raw FASTQ Files
+
+    ``` bash
+    fastqc raw_fastq/*fastq.gz -o raw_fastq/raw_qc
+    ```
+
+3.  Trim Raw FASTQ Files
+
+    ``` bash
+    for i in raw_fastq/*_1.fastq.gz ; do 
+      cutadapt -j 0 --trim-n -m 20 -q 20 \
+        -u -1 -U -1 -a AGATCGGAAGAG -A AGATCGGAAGAG \
+        --json trim_fastq/trim_stats/${i%_1.fastq.gz}.cutadapt.json \
+        -o trim_fastq/${i/_1.fastq/_1.trim.fastq} \
+        -p trim_fastq/${i/_1.fastq/_2.trim.fastq} \
+        "$i" "${i/_1.fastq/_2.fastq}"
+    done  
+    ```
+
+4.  QC Trimmed FASTQ Files
+
+    ``` bash
+    fastqc trim_fastq/*fastq.gz -o trim_fastq/trim_qc
+    ```
+
+5.  Align To Genome
+
+    ``` bash
+    for i in trim_fastq/*_1.fastq.gz ; do
+      STAR --readFilesIn "$i" "${i/_1.trim.fastq/_2.trim.fastq}" \
+      --outFileNamePrefix align_quant/"${i%_1*}_" \
+      --readFilesCommand zcat 
+      --geomeDir [GENOME_DIR_LOCATION] --genomeLoad LoadAndKeep \
+      --outSAMtype BAM SortedByCoordinate --outBAMsortingThreadN 32 \
+      --limitBAMsortRAM 100000000000 \
+      --quantMode GeneCounts
+    done
+    ```
+
+Software Versions:
+
+| Software        | Version                          |
+|-----------------|----------------------------------|
+| FASTQC          | v0.12.1                          |
+| Cutadapt        | 4.9 with Python 3.10.13          |
+| STAR            | 2.7.11b                          |
+| Genome          | hg38                             |
+| Annotation File | gencode.v45.basic.annotation.gtf |
